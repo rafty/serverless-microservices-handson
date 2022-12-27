@@ -1,0 +1,374 @@
+{
+	"info": {
+		"_postman_id": "421036e6-7d5b-41a1-a80f-4ebc9c8f2e22",
+		"name": "serverless-microservices-handson",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2966758"
+	},
+	"item": [
+		{
+			"name": "restaurant microservice",
+			"item": [
+				{
+					"name": "CreateRestaurant",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_name\": \"skylark\",\n    \"restaurant_address\": {\n        \"street1\": \"1 Main Street\",\n        \"street2\": \"Unit 99\",\n        \"city\": \"Oakland\",\n        \"state\": \"CA\",\n        \"zip\": \"94611\"\n    },\n    \"menu_items\": [\n        {\n            \"menu_id\": \"000001\",\n            \"menu_name\": \"Curry Rice\",\n            \"price\": {\n                        \"value\": 800,\n                        \"currency\": \"JPY\"\n                     }\n        },\n        {\n            \"menu_id\": \"000002\",\n            \"menu_name\": \"Hamburger\",\n            \"price\": {\n                        \"value\": 1000,\n                        \"currency\": \"JPY\"\n                     }\n        },\n        {\n            \"menu_id\": \"000003\",\n            \"menu_name\": \"Ramen\",\n            \"price\": {\n                        \"value\": 700,\n                        \"currency\": \"JPY\"\n                     }\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "https://7pzp2u9fnl.execute-api.ap-northeast-1.amazonaws.com/prod/restaurants",
+							"protocol": "https",
+							"host": [
+								"7pzp2u9fnl",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"restaurants"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetRestaurant",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://7pzp2u9fnl.execute-api.ap-northeast-1.amazonaws.com/prod/restaurants/9",
+							"protocol": "https",
+							"host": [
+								"7pzp2u9fnl",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"restaurants",
+								"9"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "order microservice",
+			"item": [
+				{
+					"name": "CreateOrder",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"consumer_id\": 4,\n    \"restaurant_id\": 27,\n    \"delivery_information\": {\n       \"delivery_time\": \"2022-11-30T05:00:30.001000Z\",\n       \"delivery_address\": {\n            \"street1\": \"9 Amazing View\",\n            \"street2\": \"Soi 8\",\n            \"city\": \"Oakland\",\n            \"state\": \"CA\",\n            \"zip\": \"94612\"\n        }\n    },\n    \"order_line_items\": [\n        {\n            \"menu_id\": \"000001\",\n            \"quantity\": 3\n        },\n        {\n            \"menu_id\": \"000002\",\n            \"quantity\": 2\n        },\n        {\n            \"menu_id\": \"000003\",\n            \"quantity\": 1\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "https://q5oe0aiq6c.execute-api.ap-northeast-1.amazonaws.com/prod/orders",
+							"protocol": "https",
+							"host": [
+								"q5oe0aiq6c",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetOrder",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://q5oe0aiq6c.execute-api.ap-northeast-1.amazonaws.com/prod/orders/dc83abae951c4185ab3780a5b7c5f055",
+							"protocol": "https",
+							"host": [
+								"q5oe0aiq6c",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"orders",
+								"dc83abae951c4185ab3780a5b7c5f055"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Order",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://q5oe0aiq6c.execute-api.ap-northeast-1.amazonaws.com/prod/orders/f00c53e12b3743678f0c5d3edb0d0007/cancel",
+							"protocol": "https",
+							"host": [
+								"q5oe0aiq6c",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"orders",
+								"f00c53e12b3743678f0c5d3edb0d0007",
+								"cancel"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ReviseOrder",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"delivery_information\": {\n       \"delivery_time\": \"2022-11-30T05:00:30.001000Z\",\n       \"delivery_address\": {\n            \"street1\": \"9 Amazing View\",\n            \"street2\": \"Soi 8\",\n            \"city\": \"Oakland\",\n            \"state\": \"CA\",\n            \"zip\": \"94612\"\n        }\n    },\n    \"revised_order_line_items\": [  \n        {\n            \"menu_id\": \"000001\",\n            \"quantity\": 3\n        },\n        {\n            \"menu_id\": \"000002\",\n            \"quantity\": 2\n        },\n        {\n            \"menu_id\": \"000003\",\n            \"quantity\": 1\n        }\n    ]\n}\n"
+						},
+						"url": {
+							"raw": "https://q5oe0aiq6c.execute-api.ap-northeast-1.amazonaws.com/prod/orders/b53c812c31cc436891ebe5da18c9d236/revise",
+							"protocol": "https",
+							"host": [
+								"q5oe0aiq6c",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"orders",
+								"b53c812c31cc436891ebe5da18c9d236",
+								"revise"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "consumer",
+			"item": [
+				{
+					"name": "CreateConsumer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": {\n        \"first_name\": \"Taro\",\n        \"last_name\": \"Yamada\"\n    }\n}"
+						},
+						"url": {
+							"raw": "https://n7ukd9bvid.execute-api.ap-northeast-1.amazonaws.com/prod/consumers",
+							"protocol": "https",
+							"host": [
+								"n7ukd9bvid",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"consumers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetConsumer",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "account",
+			"item": [
+				{
+					"name": "CreateAccount",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"consumer_id\": 1,\n    \"card_information\": {\n        \"card_number\": \"1234123412341234\",\n        \"expiry_date\": \"2024-12-31T23:59:59.999999Z\"\n    }\n}"
+						},
+						"url": {
+							"raw": "https://22gwl14nxk.execute-api.ap-northeast-1.amazonaws.com/prod/accounts",
+							"protocol": "https",
+							"host": [
+								"22gwl14nxk",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"accounts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetAccount",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://22gwl14nxk.execute-api.ap-northeast-1.amazonaws.com/prod/accounts?consumer_id=1",
+							"protocol": "https",
+							"host": [
+								"22gwl14nxk",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"accounts"
+							],
+							"query": [
+								{
+									"key": "consumer_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "delivery",
+			"item": [
+				{
+					"name": "CourierAvailable",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"available\": true\n}"
+						},
+						"url": {
+							"raw": "https://m54l09jeq1.execute-api.ap-northeast-1.amazonaws.com/prod/couriers/1003/availability",
+							"protocol": "https",
+							"host": [
+								"m54l09jeq1",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"couriers",
+								"1003",
+								"availability"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CourierUnavailable",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"available\": false\n}"
+						},
+						"url": {
+							"raw": "https://m54l09jeq1.execute-api.ap-northeast-1.amazonaws.com/prod/couriers/1002/availability",
+							"protocol": "https",
+							"host": [
+								"m54l09jeq1",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"couriers",
+								"1002",
+								"availability"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "kitchen",
+			"item": [
+				{
+					"name": "AcceptTicket",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ready_by\": \"2022-11-30T05:00:30.001000Z\"\n}"
+						},
+						"url": {
+							"raw": "https://69pexc9xwf.execute-api.ap-northeast-1.amazonaws.com/prod/tickets/f00c53e12b3743678f0c5d3edb0d0007/accept",
+							"protocol": "https",
+							"host": [
+								"69pexc9xwf",
+								"execute-api",
+								"ap-northeast-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"tickets",
+								"f00c53e12b3743678f0c5d3edb0d0007",
+								"accept"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
