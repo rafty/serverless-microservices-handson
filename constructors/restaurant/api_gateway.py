@@ -16,7 +16,13 @@ class RestaurantRestApiConstructor(Construct):
             self,
             'RestaurantServiceRestApi',
             handler=self.props['function'],
-            proxy=False
+            proxy=False,
+            deploy_options=aws_apigateway.StageOptions(
+                data_trace_enabled=True,
+                logging_level=aws_apigateway.MethodLoggingLevel.INFO,
+                metrics_enabled=True,
+                tracing_enabled=True,
+            )
         )
         self.rest_resource_and_method()
 

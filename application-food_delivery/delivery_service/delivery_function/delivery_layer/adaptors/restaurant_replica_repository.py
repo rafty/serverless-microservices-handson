@@ -10,7 +10,7 @@ from delivery_layer.common import exception as ex
 
 class AbstractRepository(abc.ABC):
     @abc.abstractmethod
-    def save(self, restaurant: restaurant_model.Restaurant):
+    def save(self, restaurant: restaurant_model.Restaurant, event_id, timestamp):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -38,17 +38,34 @@ class DynamoDbRepository(AbstractRepository):
         self.table_name = os.environ.get('DYNAMODB_RESTAURANT_REPLICA_TABLE_NAME',
                                          'Delivery-RestaurantReplica')
 
-    def save(self, restaurant: restaurant_model.Restaurant):
-        restaurant_dynamo_dict = self.to_dynamo_dict(restaurant)
+    def save(self, restaurant: restaurant_model.Restaurant, event_id, timestamp):
+        restaurant_dynamo_dict = self.to_dynamo_dict(restaurant, event_id, timestamp)
         with dx.dynamo_exception_check():
-            resp = self.client.put_item(TableName=self.table_name,
-                                        Item=restaurant_dynamo_dict)
+            resp = self.client.put_item(
+                TableName=self.table_name,
+                Item=restaurant_dynamo_dict,
+                ConditionExpression='attribute_not_exists(#event_id) OR #event_id < :event_id',
+                ExpressionAttributeNames={
+                    '#event_id': 'event_id',
+                },
+                ExpressionAttributeValues={
+                    ':event_id': {'N': str(event_id)},
+                }
+            )
+            # ConditionExpression: 冪等性、古いEventで上書きしない。
 
     @staticmethod
-    def to_dynamo_dict(restaurant):
+    def to_dynamo_dict(restaurant, event_id, timestamp):
         restaurant_dict = restaurant.to_dict()
+
+        # primary key
         restaurant_dict['PK'] = f"RESTAURANT#{restaurant.restaurant_id}"
         restaurant_dict['SK'] = f"METADATA#{restaurant.restaurant_id}"
+
+        # for event envelope
+        restaurant_dict['event_id'] = event_id
+        restaurant_dict['timestamp'] = timestamp
+
         serializer = boto3.dynamodb.types.TypeSerializer()
         item = {k: serializer.serialize(v) for k, v in restaurant_dict.items()}
         del restaurant_dict['restaurant_id']

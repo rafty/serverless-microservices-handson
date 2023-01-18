@@ -1,6 +1,8 @@
 import json
-import traceback
 from order_layers.presentation import controller
+from aws_xray_sdk import core as x_ray
+
+x_ray.patch_all()
 
 
 def lambda_handler(event, context):

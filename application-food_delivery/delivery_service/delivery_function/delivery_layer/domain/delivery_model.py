@@ -5,12 +5,15 @@ import decimal
 import datetime
 import json
 from delivery_layer.common import common
+from delivery_layer.domain import domain_event
 
 
 class DeliveryState(enum.Enum):
     PENDING = 'PENDING'
     SCHEDULED = 'SCHEDULED'
     CANCELLED = 'CANCELLED'
+    PICKEDUP = 'PICKEDUP'
+    DELIVERED = 'DELIVERED'
 
 
 class Delivery:
@@ -30,9 +33,11 @@ class Delivery:
                  pickup_address: common.Address,
                  delivery_address: common.Address,
                  state: DeliveryState = None,
+                 ready_by=None,
                  pickup_time=None,
                  delivery_time=None,
-                 ready_by=None,
+                 pickedup_time=None,
+                 delivered_time=None,
                  assigned_courier=None):
 
         self.delivery_id = delivery_id
@@ -40,9 +45,11 @@ class Delivery:
         self.pickup_address = pickup_address
         self.delivery_address = delivery_address
         self.restaurant_id = restaurant_id
+        self.ready_by: datetime.datetime = ready_by if ready_by else None
         self.pickup_time: datetime.datetime = pickup_time if pickup_time else None
         self.delivery_time: datetime.datetime = delivery_time if delivery_time else None
-        self.ready_by: datetime.datetime = ready_by if ready_by else None
+        self.pickedup_time: datetime.datetime = pickedup_time if pickedup_time else None
+        self.delivered_time: datetime.datetime = delivered_time if delivered_time else None
         self.assigned_courier: int = assigned_courier if assigned_courier else None
 
     @classmethod
@@ -149,3 +156,13 @@ class Delivery:
         self.state = DeliveryState.CANCELLED
         self.assigned_courier = None
         return self
+
+    def pickedup(self, pickedup_time: datetime.datetime) -> Delivery:
+        self.pickedup_time = pickedup_time
+        self.state = DeliveryState.PICKEDUP
+        return self, domain_event.DeliveryPickedup(delivery_id=self.delivery_id)
+
+    def delivered(self, delivered_time: datetime.datetime) -> Delivery:
+        self.delivered_time = delivered_time
+        self.state = DeliveryState.DELIVERED
+        return self, domain_event.DeliveryDelivered(delivery_id=self.delivery_id)

@@ -28,18 +28,18 @@ HANDLER = handlers.Handler(kitchen_repo=KITCHEN_REPOSITORY,
 def extract_parameter_from_event(event):
     event_source = event.get('source', None)
     event_detail = event.get('detail', None)
-    channel = event.get('detail', None).get('channel')
-    return event_source, event_detail, channel
+    event_type = event.get('detail', None).get('event_type')
+    return event_source, event_detail, event_type
 
 
 def eventbus_invocation(event: dict):
     try:
-        event_source, event_detail, channel = extract_parameter_from_event(event)
-        if event_source == 'com.restaurant.created' and channel == 'RestaurantCreated':
+        event_source, event_detail, event_type = extract_parameter_from_event(event)
+        if event_source == 'com.restaurant.created' and event_type == 'RestaurantCreated':
             event_ = events.RestaurantCreated.from_event(event_detail)
             HANDLER.events_handler(event_)
         else:
-            raise Exception(f"NotSupportEvent: {event_source} : {channel}")
+            raise Exception(f"NotSupportEvent: {event_source} : {event_type}")
         return None
 
     except Exception as e:

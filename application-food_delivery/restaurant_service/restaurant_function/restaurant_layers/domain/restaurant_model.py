@@ -2,7 +2,6 @@ from __future__ import annotations  # classの依存関係の許可
 import dataclasses
 import json
 import decimal
-import uuid
 
 from restaurant_layers.common import common
 from restaurant_layers.domain import restaurant_domain_events
@@ -85,21 +84,19 @@ class Restaurant:
                          restaurant_name=restaurant_name,
                          restaurant_address=restaurant_address,
                          menu_items=menu_items)
-        event = restaurant_domain_events.RestaurantCreated(event_id=uuid.uuid4().hex,
-                                                           restaurant_id=restaurant.restaurant_id,
+        event = restaurant_domain_events.RestaurantCreated(restaurant_id=restaurant.restaurant_id,
                                                            restaurant_name=restaurant.restaurant_name,
                                                            restaurant_address=restaurant.restaurant_address,
                                                            menu_items=restaurant.menu_items)
-        return restaurant, [event]
+        return restaurant, event
 
-    # Todo: Unused ?
+    # Todo: ↓ Unused ?
     @classmethod
     def create_from_dict(cls, d):
         restaurant = Restaurant.from_dict(d)
 
-        event = restaurant_domain_events.RestaurantCreated(restaurant_id=restaurant.restaurant_id,
-                                                           restaurant_name=restaurant.restaurant_name,
+        event = restaurant_domain_events.RestaurantCreated(restaurant_name=restaurant.restaurant_name,
                                                            restaurant_address=restaurant.restaurant_address,
                                                            menu_items=restaurant.menu_items.menu_items)
 
-        return restaurant, [event]
+        return restaurant, event

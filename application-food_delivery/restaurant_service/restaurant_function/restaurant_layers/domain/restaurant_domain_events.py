@@ -6,14 +6,13 @@ from restaurant_layers.common import common
 from restaurant_layers.domain import restaurant_model
 
 
+@dataclasses.dataclass
 class DomainEvent:
-    pass
+    restaurant_id: int
 
 
 @dataclasses.dataclass
 class RestaurantCreated(DomainEvent):
-    event_id: str
-    restaurant_id: int
     restaurant_name: str
     restaurant_address: common.Address
     menu_items: list[restaurant_model.MenuItem]

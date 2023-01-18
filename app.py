@@ -8,6 +8,8 @@ from stacks.consumer_service_stack import ConsumerServiceStack
 from stacks.kitchen_service_stack import KitchenServiceStack
 from stacks.account_service_stack import AccountServiceStack
 from stacks.delivery_service_stack import DeliveryServiceStack
+from stacks.order_history_service_stack import OrderHistoryServiceStack
+
 
 env = cdk.Environment(
     account=os.environ.get("CDK_DEPLOY_ACCOUNT", os.environ["CDK_DEFAULT_ACCOUNT"]),
@@ -52,5 +54,16 @@ order_service.add_dependency(kitchen_service)
 # -----------------------------------------------------------
 delivery_service = DeliveryServiceStack(app, "DeliveryServiceStack", env=env)
 delivery_service.add_dependency(order_service)
+
+
+# -----------------------------------------------------------
+# Order History Service
+# -----------------------------------------------------------
+order_history_service = OrderHistoryServiceStack(app, "OrderHistoryServiceStack", env=env)
+order_history_service.add_dependency(account_service)
+order_history_service.add_dependency(order_service)
+order_history_service.add_dependency(kitchen_service)
+order_history_service.add_dependency(delivery_service)
+
 
 app.synth()

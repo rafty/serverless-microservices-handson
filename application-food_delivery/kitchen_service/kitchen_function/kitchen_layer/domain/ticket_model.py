@@ -189,33 +189,22 @@ class Ticket:
 
         print(f'ticket_model.py create_ticket: {ticket_id}')
 
-        # Todo: いまここ  TicketCreatedをconfirm_createに移動した。
-        # event = kitchen_domain_event.TicketCreated(event_id=uuid.uuid4().hex,
-        #                                            ticket_id=ticket_id,
-        #                                            restaurant_id=restaurant_id,
-        #                                            line_items=line_items)
-        # return cls(ticket_id, restaurant_id, line_items), [event]
-        return cls(ticket_id, restaurant_id, line_items), []
+        return cls(ticket_id, restaurant_id, line_items), None
 
     def cancel_create(self):
 
         if self.state == TicketState.CREATE_PENDING:
             self.state = TicketState.CANCELLED
-            return self, [kitchen_domain_event.TicketCancelled(event_id=uuid.uuid4().hex,
-                                                               ticket_id=self.ticket_id)]
+            return self, kitchen_domain_event.TicketCancelled(ticket_id=self.ticket_id)
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
-    def confirm_create(self) -> (Ticket, list[kitchen_domain_event.TicketCreated]):
+    def confirm_create(self) -> (Ticket, kitchen_domain_event.TicketCreated):
         if self.state == TicketState.CREATE_PENDING:
             self.state = TicketState.AWAITING_ACCEPTANCE
-            # return self, [kitchen_domain_event.TicketCancelled(event_id=uuid.uuid4().hex,
-            #                                                    ticket_id=self.ticket_id)]
-            # Todo: TicketCancelledをTicketCreatedに変更！ いまここ
-            return self, [kitchen_domain_event.TicketCreated(event_id=uuid.uuid4().hex,
-                                                             ticket_id=self.ticket_id,
-                                                             restaurant_id=self.restaurant_id,
-                                                             line_items=self.line_items)]
+            return self, kitchen_domain_event.TicketCreated(ticket_id=self.ticket_id,
+                                                            restaurant_id=self.restaurant_id,
+                                                            line_items=self.line_items)
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
@@ -230,17 +219,14 @@ class Ticket:
     def confirm_cancel(self) -> (Ticket, kitchen_domain_event.TicketCancelled):
         if self.state == TicketState.CANCEL_PENDING:
             self.state = TicketState.CANCELLED
-            return self, [
-                kitchen_domain_event.TicketCancelled(event_id=uuid.uuid4().hex,
-                                                     ticket_id=self.ticket_id)
-            ]
+            return self, kitchen_domain_event.TicketCancelled(ticket_id=self.ticket_id)
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
     def undo_cancel(self) -> (Ticket, kitchen_domain_event.TicketCancelled):
         if self.state == TicketState.CANCEL_PENDING:
             self.state = self.previous_state
-            return self, []  # return empty list
+            return self, None  # return empty list
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
@@ -251,25 +237,24 @@ class Ticket:
             self.previous_state = self.state
             self.state = TicketState.REVISION_PENDING
             # RevisedOrderLineItem処理は行わない。実際にReviseがConfirmされたらItemsを変更する
-            return self, []  # return empty list  # Todo Domain Eventを発行する必要があるか？
+            return self, None  # return empty list  # Todo Domain Eventを発行する必要があるか？
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
     def confirm_revise_ticket(self, revise_order_line_items: list[RevisedOrderLineItem]) -> \
-            (Ticket, list[kitchen_domain_event.TicketRevised]):
+            (Ticket, kitchen_domain_event.TicketRevised):
 
         if self.state == TicketState.REVISION_PENDING:
             self.line_items = revise_order_line_items  # line_itemsを更新
             self.state = self.previous_state  # AWAITING_ACCEPTANCE or ACCEPTED
-            return self, [kitchen_domain_event.TicketRevised(event_id=uuid.uuid4().hex,
-                                                             ticket_id=self.ticket_id,)]
+            return self, kitchen_domain_event.TicketRevised(ticket_id=self.ticket_id,)
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
     def undo_begin_revise_ticket(self) -> (Ticket, list):
         if self.state == TicketState.REVISION_PENDING:
             self.state = self.previous_state  # AWAITING_ACCEPTANCE or ACCEPTED
-            return self, []  # return empty list
+            return self, None  # return empty list
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
 
@@ -283,14 +268,10 @@ class Ticket:
             #     raise exceptions.IllegalArgumentException(
             #         f'ready_by: {ready_by} is not after now(accept time): {self.accept_time}')
             self.ready_by = ready_by
-            return self, [
-                kitchen_domain_event.TicketAccepted(event_id=uuid.uuid4().hex,
-                                                    ticket_id=self.ticket_id,
-                                                    ready_by=ready_by)
-            ]
+            return self, kitchen_domain_event.TicketAccepted(ticket_id=self.ticket_id,
+                                                             ready_by=ready_by)
         else:
             raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
-
 
     # def reject(self):
     #     # No Implement
@@ -301,9 +282,7 @@ class Ticket:
     #     if self.state == TicketState.ACCEPTED:
     #         self.state = TicketState.PREPARING
     #         self.accept_time = datetime.datetime.utcnow()
-    #         return [
-    #             kitchen_domain_event.TicketPreparationStarted(ticket_id=self.ticket_id)
-    #         ]
+    #         return self, kitchen_domain_event.TicketPreparationStarted(ticket_id=self.ticket_id)
     #     else:
     #         raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
     #
@@ -312,9 +291,7 @@ class Ticket:
     #     if self.state == TicketState.PREPARING:
     #         self.state = TicketState.READY_FOR_PICKUP
     #         self.accept_time = datetime.datetime.utcnow()
-    #         return [
-    #             kitchen_domain_event.TicketPreparationCompleted(ticket_id=self.ticket_id)
-    #         ]
+    #         return self, kitchen_domain_event.TicketPreparationCompleted(ticket_id=self.ticket_id)
     #     else:
     #         raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
     #
@@ -323,35 +300,10 @@ class Ticket:
     #     if self.state == TicketState.READY_FOR_PICKUP:
     #         self.state = TicketState.PICKED_UP
     #         self.accept_time = datetime.datetime.utcnow()
-    #         return [
-    #             kitchen_domain_event.TicketPickedUp(ticket_id=self.ticket_id)
-    #         ]
+    #         return self, kitchen_domain_event.TicketPickedUp(ticket_id=self.ticket_id)
     #     else:
     #         raise exceptions.UnsupportedStateTransitionException(f'Unsupported State{self.state}')
     #
     # def change_lineitem_quantity(self):
     #     # No Implement
     #     pass
-    #
-
-
-# Todo: Saga
-"""
-  public CommandHandlers commandHandlers() {
-    return SagaCommandHandlersBuilder
-            .fromChannel(KitchenServiceChannels.COMMAND_CHANNEL)
-            .onMessage(CreateTicket.class, this::createTicket)
-            .onMessage(ConfirmCreateTicket.class, this::confirmCreateTicket)
-            .onMessage(CancelCreateTicket.class, this::cancelCreateTicket)
-
-            .onMessage(BeginCancelTicketCommand.class, this::beginCancelTicket)
-            .onMessage(ConfirmCancelTicketCommand.class, this::confirmCancelTicket)
-            .onMessage(UndoBeginCancelTicketCommand.class, this::undoBeginCancelTicket)
-
-            .onMessage(BeginReviseTicketCommand.class, this::beginReviseTicket)
-            .onMessage(UndoBeginReviseTicketCommand.class, this::undoBeginReviseTicket)
-            .onMessage(ConfirmReviseTicketCommand.class, this::confirmReviseTicket)
-            .build();
-  }
-
-"""

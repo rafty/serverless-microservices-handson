@@ -334,11 +334,15 @@ class Order:
                                      order_line_items=order.order_line_items.line_items,
                                      order_total=order.get_order_total())
 
-        event = order_domain_events.OrderCreated(event_id=uuid.uuid4().hex,
-                                                 order_id=order.order_id,
+        event = order_domain_events.OrderCreated(order_id=order.order_id,
                                                  order_details=order_details,
                                                  delivery_information=delivery_information)
-        return order, [event]
+
+        # Todo: [event]をシングルに変更する。
+        #  REST APIでevent_idをシンプルに返せるようにするため。
+        #  複数Eventを返したいときはAdditionalEventとして返す。
+        # return order, [event]
+        return order, event
 
     def get_order_total(self):
         return self.order_line_items.order_total()
@@ -346,8 +350,10 @@ class Order:
     def note_approved(self):
         if self.order_state == OrderState.APPROVAL_PENDING:
             self.order_state = OrderState.APPROVED
-            return self, [order_domain_events.OrderAuthorized(event_id=uuid.uuid4().hex,
-                                                              order_id=self.order_id)]
+
+            # Todo: [event]をシングルに変更する。
+            # return self, [order_domain_events.OrderAuthorized(order_id=self.order_id)]
+            return self, order_domain_events.OrderAuthorized(order_id=self.order_id)
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State{self.order_state}')
@@ -355,7 +361,10 @@ class Order:
     def cancel(self):
         if self.order_state == OrderState.APPROVED:
             self.order_state = OrderState.CANCEL_PENDING
-            return self, []  # 必要なければDomain Eventを発行しない
+
+            # Todo: [event]をシングルに変更する。
+            # return self, []  # 必要なければDomain Eventを発行しない
+            return self, None  # 必要なければDomain Eventを発行しない
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State {self.order_state}')
@@ -363,8 +372,10 @@ class Order:
     def note_canceled(self) -> (Order, list[order_domain_events.OrderCancelled]):
         if self.order_state == OrderState.CANCEL_PENDING:
             self.order_state = OrderState.CANCELLED
-            return self, [order_domain_events.OrderCancelled(event_id=uuid.uuid4().hex,
-                                                             order_id=self.order_id)]
+
+            # Todo: [event]をシングルに変更する。
+            # return self, [order_domain_events.OrderCancelled(order_id=self.order_id)]
+            return self, order_domain_events.OrderCancelled(order_id=self.order_id)
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State {self.order_state}')
@@ -380,8 +391,9 @@ class Order:
     def note_rejected(self):
         if self.order_state == OrderState.APPROVAL_PENDING:
             self.order_state = OrderState.REJECTED
-            return self, [order_domain_events.OrderRejected(event_id=uuid.uuid4().hex,
-                                                            order_id=self.order_id)]
+            # Todo: [event]をシングルに変更する。
+            # return self, [order_domain_events.OrderRejected(order_id=self.order_id)]
+            return self, order_domain_events.OrderRejected(order_id=self.order_id)
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State{self.order_state}')
@@ -402,16 +414,21 @@ class Order:
 
             self.order_state = OrderState.REVISION_PENDING
 
-            events = [
-                order_domain_events.OrderRevisionProposed(
-                                                    event_id=uuid.uuid4().hex,
+            # Todo: [event]をシングルに変更する。
+            # events = [
+            #     order_domain_events.OrderRevisionProposed(
+            #                                         order_id=self.order_id,
+            #                                         order_revision=order_revision,
+            #                                         current_order_total=change.current_order_total,
+            #                                         new_order_total=change.new_order_total)
+            # ]
+            # return self, change, events
+            event = order_domain_events.OrderRevisionProposed(
                                                     order_id=self.order_id,
                                                     order_revision=order_revision,
                                                     current_order_total=change.current_order_total,
                                                     new_order_total=change.new_order_total)
-            ]
-
-            return self, change, events
+            return self, change, event
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State{self.order_state}')
@@ -429,12 +446,18 @@ class Order:
                 self.order_line_items.update_line_items(order_revision)
 
             self.order_state = OrderState.APPROVED
-            return self, [order_domain_events.OrderRevised(
-                                 event_id=uuid.uuid4().hex,
+
+            # Todo: [event]をシングルに変更する。
+            # return self, [order_domain_events.OrderRevised(
+            #                      order_id=self.order_id,
+            #                      order_revision=order_revision,
+            #                      current_order_total=line_item_quantity_change.current_order_total,
+            #                      new_order_total=line_item_quantity_change.new_order_total)]
+            return self, order_domain_events.OrderRevised(
                                  order_id=self.order_id,
                                  order_revision=order_revision,
                                  current_order_total=line_item_quantity_change.current_order_total,
-                                 new_order_total=line_item_quantity_change.new_order_total)]
+                                 new_order_total=line_item_quantity_change.new_order_total)
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State{self.order_state}')
@@ -442,7 +465,9 @@ class Order:
     def undo_revise_order(self):
         if self.order_state == OrderState.REVISION_PENDING:
             self.order_state = OrderState.APPROVED
-            return self, []  # empty domain event
+            # Todo: [event]をシングルに変更する。
+            # return self, []  # empty domain event
+            return self, None  # empty domain event
         else:
             raise exception.UnsupportedStateTransitionException(
                 f'Unsupported State{self.order_state}')

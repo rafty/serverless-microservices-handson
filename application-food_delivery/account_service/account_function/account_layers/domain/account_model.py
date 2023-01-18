@@ -5,8 +5,7 @@ import uuid
 import json
 import datetime
 from account_layers.common import common
-from account_layers.common import exceptions
-from account_layers.domain import domain_event
+from account_layers.domain import domain_events
 
 
 class Account:
@@ -47,10 +46,9 @@ class Account:
     @classmethod
     def create(cls, consumer_id: int, card_information: common.CardInformation):
         account = cls(consumer_id=consumer_id, card_information=card_information)
-        event = domain_event.AccountCreated(event_id=uuid.uuid4().hex,
-                                            consumer_id=account.consumer_id,
-                                            account_id=account.account_id)
-        return account, [event]
+        event = domain_events.AccountCreated(consumer_id=account.consumer_id,
+                                             account_id=account.account_id)
+        return account, event
 
     def authorize_card(self, order_total: common.Money):
         # Todo: implement some business logic

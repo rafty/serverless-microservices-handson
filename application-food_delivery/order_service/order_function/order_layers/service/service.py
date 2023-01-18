@@ -1,14 +1,10 @@
 from __future__ import annotations  # classの依存関係の許可
-import decimal
-import json
-import uuid
-from order_layers.common import common
-from order_layers.common import exception
 from order_layers.domain import order_model
 from order_layers.domain import restaurant_model
 from order_layers.service import events
 from order_layers.service import commands
 from order_layers.domain import order_domain_events
+from order_layers.service.domain_event_envelope import DomainEventEnvelope
 
 
 class OrderService:
@@ -28,7 +24,7 @@ class OrderService:
                                                  event.restaurant_name,
                                                  event.menu_items)
 
-        self.restaurant_replica_repo.save(restaurant)
+        self.restaurant_replica_repo.save(restaurant, event.event_id, event.timestamp)
 
     # Todo: 必要無い？
     # def _find_restaurant_by_id(self, restaurant_id) -> restaurant_model.Restaurant:
@@ -54,7 +50,7 @@ class OrderService:
         restaurant = self.restaurant_replica_repo.find_by_id(cmd.restaurant_id)
         order_line_items = self._make_order_line_items(cmd.order_line_items, restaurant)
 
-        order, domain_events = order_model.Order.create_order(
+        order, domain_event = order_model.Order.create_order(
             consumer_id=cmd.consumer_id,
             restaurant=restaurant,
             delivery_information=cmd.delivery_information,
@@ -63,9 +59,11 @@ class OrderService:
         # Todo: 1. Sagaを実行するためorder_event_repo.save()をトランザクションで実行する
         # Todo: 2. 並列処理は楽観ロックの実装をする。
         self.order_repo.save(order)
-        self.order_event_repo.save(domain_events)
-        # [仕様] event_repoにOrderCreatedが発行されるとCreateOrderSagaが起動する。
 
+        event_id = self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
+        # Todo: event_idの理由:
+        #  CQRSのレイテンシーがあるため、REST API Clientがpollingするidとして使えるようにリターンする。
+        #  現段階ではREST APIのresultには入れてない。
         return order
 
     @staticmethod
@@ -98,10 +96,10 @@ class OrderService:
             Todo 3: Domain Event - EventIDシーケンシャル番号を持つこと。Timestampを持つこと。変更を加えたUserIDを持つこと。
         """
         order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.note_approved()
+        order_, domain_event = order.note_approved()
 
         self.order_repo.save(order_)
-        self.order_event_repo.save(domain_events)
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
     # Todo: 楽観ロックの対応
     # def approve_order(order_id, order_repo, order_aggregate_event_pub):
@@ -147,46 +145,45 @@ class OrderService:
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
 
         # Todo: Sagaの開始がOrderStateに反映させないため、
-        #  ここでSagaを開始するEventを作成している
-        domain_events = [order_domain_events.CancelOrderSagaRequested(
-            event_id=uuid.uuid4().hex,
-            order_id=order.order_id,
-            consumer_id=order.consumer_id,
-            order_total=order.get_order_total())]
-        self.order_event_repo.save(domain_events)
+        #  ここでSagaを開始するEventを作成する。
+        domain_event = order_domain_events.CancelOrderSagaRequested(
+                                                            order_id=order.order_id,
+                                                            consumer_id=order.consumer_id,
+                                                            order_total=order.get_order_total())
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     # Cancel Order Saga member
     def begin_cancel(self, cmd: commands.BeginCancelOrder):
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.cancel()
+        order_, domain_event = order.cancel()
         self.order_repo.save(order_)
-        if domain_events:
-            self.order_event_repo.save(domain_events)
+        if domain_event:
+            self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     def confirm_cancel(self, cmd: commands.ConfirmCancelOrder):
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.note_canceled()
+        order_, domain_event = order.note_canceled()
         self.order_repo.save(order_)
-        if domain_events:
-            self.order_event_repo.save(domain_events)
+        if domain_event:
+            self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     def undo_cancel(self, cmd: commands.UndoBeginCancelOrder):
         # Cancel Order Saga の補償トランザクション
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.undo_pending_cancel()
+        order_, domain_event = order.undo_pending_cancel()
         self.order_repo.save(order_)
-        if domain_events:
-            self.order_event_repo.save(domain_events)
+        if domain_event:
+            self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     def reject_order(self, cmd: commands.RejectOrder):
         order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.note_rejected()
+        order_, domain_event = order.note_rejected()
         self.order_repo.save(order_)
-        self.order_event_repo.save(domain_events)
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     # ---------------------------------------------
@@ -200,36 +197,35 @@ class OrderService:
         #  Application Service LayerでSagaを開始するEventを作成している。
         #  Order Service以外のParameterがあるので、
         #  Order ServiceのCreateOrderからSagaを起動するのは好ましくない。
-        domain_events = [order_domain_events.ReviseOrderSagaRequested(
-            event_id=uuid.uuid4().hex,
-            order_id=order.order_id,
-            consumer_id=order.consumer_id,
-            order_revision=cmd.order_revision)]
-        self.order_event_repo.save(domain_events)
+        domain_event = order_domain_events.ReviseOrderSagaRequested(
+                                                                order_id=order.order_id,
+                                                                consumer_id=order.consumer_id,
+                                                                order_revision=cmd.order_revision)
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return order
 
     # from Revise Order Saga
     def begin_revise_order(self, cmd: commands.BeginReviseOrder):
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, line_item_quantity_change, domain_events = order.revise(cmd.order_revision)
+        order_, line_item_quantity_change, domain_event = order.revise(cmd.order_revision)
         self.order_repo.save(order_)
-        self.order_event_repo.save(domain_events)
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return line_item_quantity_change  # new_order_totalをAccount Serviceに伝える必要がある
 
     def confirm_revise_order(self, cmd: commands.ConfirmReviseOrder):
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.confirm_revision(order_revision=cmd.order_revision)
+        order_, domain_event = order.confirm_revision(order_revision=cmd.order_revision)
         self.order_repo.save(order_)
-        self.order_event_repo.save(domain_events)
+        self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return order
 
     # 補償トランザクション
     def undo_begin_revise_order(self, cmd: commands.UndoBeginReviseOrder):
         order: order_model.Order = self.order_repo.find_by_id(cmd.order_id)
-        order_, domain_events = order.undo_revise_order()
+        order_, domain_event = order.undo_revise_order()
         self.order_repo.save(order_)
-        if len(domain_events):
-            self.order_event_repo.save(domain_events)
+        if domain_event:
+            self.order_event_repo.save(DomainEventEnvelope.wrap(domain_event))
         return
 
     # def confirm_change_line_item_quantity(order_id, order_revision):

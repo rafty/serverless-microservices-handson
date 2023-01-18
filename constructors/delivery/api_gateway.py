@@ -16,7 +16,13 @@ class CourierRestApiConstructor(Construct):
             self,
             'DeliveryServiceCourierRestApi',
             handler=self.props['function'],
-            proxy=False
+            proxy=False,
+            deploy_options=aws_apigateway.StageOptions(
+                data_trace_enabled=True,
+                logging_level=aws_apigateway.MethodLoggingLevel.INFO,
+                metrics_enabled=True,
+                tracing_enabled=True,
+            )
         )
         self.rest_resource_and_method()
 
@@ -25,13 +31,22 @@ class CourierRestApiConstructor(Construct):
         Resource and Method
             /couriers/{courier_id}/availability
                 - POST          : courier available
+
+            /couriers/{courier_id}/pickedup
+                - POST          : courier delivery pickedup
+
+            /couriers/{courier_id}/delivered
+                - POST          : courier delivery delivered
+
         """
         couriers = self.api.root.add_resource('couriers')
-        # couriers.add_method('POST')
-
         single_courier = couriers.add_resource('{courier_id}')
-        # single_courier.add_method('GET')
 
         cancel_single_courier = single_courier.add_resource('availability')
         cancel_single_courier.add_method('POST')
 
+        cancel_single_courier = single_courier.add_resource('pickedup')
+        cancel_single_courier.add_method('POST')
+
+        cancel_single_courier = single_courier.add_resource('delivered')
+        cancel_single_courier.add_method('POST')

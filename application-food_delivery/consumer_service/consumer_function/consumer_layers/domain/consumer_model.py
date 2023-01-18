@@ -4,8 +4,7 @@ import decimal
 import uuid
 import json
 from consumer_layers.common import common
-from consumer_layers.common import exceptions
-from consumer_layers.domain import domain_event
+from consumer_layers.domain import domain_events
 
 
 class Consumer:
@@ -47,10 +46,9 @@ class Consumer:
     @classmethod
     def create(cls, name: common.PersonName, consumer_id: int):
         consumer = cls(name=name, consumer_id=consumer_id)
-        event = domain_event.ConsumerCreated(event_id=uuid.uuid4().hex,
-                                             consumer_id=consumer.consumer_id,
+        event = domain_events.ConsumerCreated(consumer_id=consumer.consumer_id,
                                              name=consumer.name)
-        return consumer, [event]
+        return consumer, event
 
     def validate_order_by_consumer(self, order_total: common.Money):
 

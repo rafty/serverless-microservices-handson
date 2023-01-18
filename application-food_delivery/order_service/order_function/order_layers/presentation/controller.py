@@ -25,20 +25,128 @@ HANDLER = handlers.Handler(order_repo=ORDER_REPOSITORY,
 
 
 def extract_parameter_from_event(event):
+    """
+    {
+        "version": "0",
+        "id": "9c760233-cea2-6695-ceef-e81e049c39ff",
+        "detail-type": "RestaurantCreated",
+        "source": "com.restaurant.created",
+        "account": "338456725408",
+        "time": "2022-12-28T09:31:35Z",
+        "region": "ap-northeast-1",
+        "resources": [],
+        "detail": {
+            "event_id": 4,
+            "restaurant_id": 32,
+            "restaurant_address": {
+                "zip": "94611",
+                "city": "Oakland",
+                "street1": "1 Main Street",
+                "street2": "Unit 99",
+                "state": "CA"
+            },
+            "menu_items": [
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 800
+                    },
+                    "menu_name": "Curry Rice",
+                    "menu_id": "000001"
+                },
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 1000
+                    },
+                    "menu_name": "Hamburger",
+                    "menu_id": "000002"
+                },
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 700
+                    },
+                    "menu_name": "Ramen",
+                    "menu_id": "000003"
+                }
+            ],
+            "restaurant_name": "skylark",
+            "timestamp": "2022-12-28T09:31:33.650595Z",
+            "aggregate": "RESTAURANT",
+            "event_type": "RestaurantCreated"
+        }
+    }
+    """
     event_source = event.get('source', None)
     event_detail = event.get('detail', None)
-    channel = event.get('detail', None).get('channel')
-    return event_source, event_detail, channel
+    event_type = event.get('detail', None).get('event_type')
+    return event_source, event_detail, event_type
 
 
 def eventbus_invocation(event: dict):
+    """
+    {
+        "version": "0",
+        "id": "9c760233-cea2-6695-ceef-e81e049c39ff",
+        "detail-type": "RestaurantCreated",
+        "source": "com.restaurant.created",
+        "account": "338456725408",
+        "time": "2022-12-28T09:31:35Z",
+        "region": "ap-northeast-1",
+        "resources": [],
+        "detail": {
+            "event_id": 4,
+            "restaurant_id": 32,
+            "restaurant_address": {
+                "zip": "94611",
+                "city": "Oakland",
+                "street1": "1 Main Street",
+                "street2": "Unit 99",
+                "state": "CA"
+            },
+            "menu_items": [
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 800
+                    },
+                    "menu_name": "Curry Rice",
+                    "menu_id": "000001"
+                },
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 1000
+                    },
+                    "menu_name": "Hamburger",
+                    "menu_id": "000002"
+                },
+                {
+                    "price": {
+                        "currency": "JPY",
+                        "value": 700
+                    },
+                    "menu_name": "Ramen",
+                    "menu_id": "000003"
+                }
+            ],
+            "restaurant_name": "skylark",
+            "timestamp": "2022-12-28T09:31:33.650595Z",
+            "aggregate": "RESTAURANT",
+            "event_type": "RestaurantCreated"
+        }
+    }
+    """
     try:
-        event_source, event_detail, channel = extract_parameter_from_event(event)
-        if event_source == 'com.restaurant.created' and channel == 'RestaurantCreated':
+        print(f'eventbus_invocation() event: {json.dumps(event, cls=json_encoder.JSONEncoder)}')
+
+        event_source, event_detail, event_type = extract_parameter_from_event(event)
+        if event_source == 'com.restaurant.created' and event_type == 'RestaurantCreated':
             event_ = events.RestaurantCreated.from_event(event_detail)
             HANDLER.events_handler(event_)
         else:
-            raise Exception(f"NotSupportEvent: {event_source} : {channel}")
+            raise Exception(f"NotSupportEvent: {event_source} : {event_type}")
         return None
 
     except Exception as e:
@@ -307,7 +415,7 @@ def stepfunctions_invocation(event: dict):
                 }
             },
             "order_id": "04516f76f6b0456d9e9916d667777890",
-            "channel": "OrderCreated",
+            "event_type": "OrderCreated",
             "event_context": {
                 "source": "stepfunctions",
                 "state_machine": "CreateOrderSaga"

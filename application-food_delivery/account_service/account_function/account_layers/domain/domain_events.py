@@ -1,16 +1,14 @@
 import dataclasses
-from account_layers.common import common
 
 
+@dataclasses.dataclass
 class DomainEvent:
-    pass
+    account_id: int
 
 
 @dataclasses.dataclass
 class AccountCreated(DomainEvent):
-    event_id: str
     consumer_id: int
-    account_id: int
     # card_information: common.CardInformation  # Todo: セキュリティ上、通知しない
 
     def to_dict(self):

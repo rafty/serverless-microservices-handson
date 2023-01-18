@@ -2,14 +2,13 @@ import dataclasses
 from consumer_layers.common import common
 
 
+@dataclasses.dataclass
 class DomainEvent:
-    pass
+    consumer_id: int
 
 
 @dataclasses.dataclass
 class ConsumerCreated(DomainEvent):
-    event_id: str
-    consumer_id: int
     name: common.PersonName
 
     def to_dict(self):

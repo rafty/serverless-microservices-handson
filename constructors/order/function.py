@@ -5,6 +5,7 @@ from aws_cdk import aws_events
 from aws_cdk import aws_events_targets
 from aws_cdk import aws_sqs
 from aws_cdk import aws_lambda_event_sources
+from aws_cdk import aws_sam
 
 
 class OrderFunctionConstructor(Construct):
@@ -12,6 +13,7 @@ class OrderFunctionConstructor(Construct):
     def __init__(self, scope: "Construct", id_: str, props: dict = None) -> None:
         super().__init__(scope, id_)
         self.props = props
+        self.env: aws_cdk.Environment = props['env']  # account, region
         self.order_table = props['order_table']
         self.order_event_table = props['order_event_table']
         self.restaurant_replica_table = props['restaurant_replica_table']
@@ -27,6 +29,8 @@ class OrderFunctionConstructor(Construct):
             handler='lambda_function.lambda_handler',
             code=aws_lambda.Code.from_asset('application-food_delivery'
                                             '/order_service/order_function'),
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
             environment={
                 'DYNAMODB_TABLE_NAME': self.order_table.table_name,
                 'DYNAMODB_EVENT_TABLE_NAME': self.order_event_table.table_name,
@@ -40,6 +44,24 @@ class OrderFunctionConstructor(Construct):
         self.add_event_bus_target(order_function)
 
         return order_function
+
+    def lambda_powertools(self):
+
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version
 
     def add_event_bus_target(self, lambda_function):
         restaurant_service_eventbus_arn = aws_cdk.Fn.import_value('RestaurantServiceEventBusARN')
@@ -98,6 +120,8 @@ class OrderEventFunctionConstructor(Construct):
             handler='lambda_function.lambda_handler',
             code=aws_lambda.Code.from_asset('application-food_delivery/order_service'
                                             '/order_domain_event_function'),
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
             environment={
                 'STATEMACHINE_ARN_FOR_CREATE_ORDER_SAGA': self.state_machine_for_create_order_saga.state_machine_arn,
                 'STATEMACHINE_ARN_FOR_CANCEL_ORDER_SAGA': self.state_machine_for_cancel_order_saga.state_machine_arn,
@@ -122,3 +146,21 @@ class OrderEventFunctionConstructor(Construct):
         )
 
         return function
+
+    def lambda_powertools(self):
+
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version

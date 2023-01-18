@@ -7,7 +7,7 @@ from boto3.dynamodb.types import TypeDeserializer
 from delivery_layer.domain import delivery_model
 from delivery_layer.adaptors import dynamo_exception as dx
 from delivery_layer.common import exception as ex
-
+from delivery_layer.common import json_encoder
 
 class AbstractRepository(abc.ABC):
     @abc.abstractmethod
@@ -51,7 +51,12 @@ class DynamoDbRepository(AbstractRepository):
         self.table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'DeliveryService')
 
     def save(self, delivery: delivery_model.Delivery):
+        print(f'delivery_repo.save() delivery: {delivery}')
+
         delivery_dynamo_dict = self.to_dynamo_dict(delivery)
+
+        print(f'delivery_dynamo_dict: {json.dumps(delivery_dynamo_dict, cls=json_encoder.JSONEncoder)}')
+
         with dx.dynamo_exception_check():
             resp = self.client.put_item(TableName=self.table_name,
                                         Item=delivery_dynamo_dict)

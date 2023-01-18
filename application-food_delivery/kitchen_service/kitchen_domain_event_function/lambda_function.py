@@ -3,8 +3,9 @@ import json
 from json_encoder import JSONEncoder
 import boto3
 from boto3.dynamodb.types import TypeDeserializer
-from botocore.exceptions import ClientError
+from aws_xray_sdk import core as x_ray
 
+x_ray.patch_all()
 EVENTBUS_NAME = os.environ.get('EVENT_BUS_NAME')
 EVENT_SOURCE = os.environ.get('EVENT_SOURCE')
 EVENT_DETAIL_TYPE = os.environ.get('EVENT_DETAIL_TYPE')
@@ -20,15 +21,26 @@ class UnsupportedEventChannelException(Exception):
 def convert_to_python_obj(dynamo_item) -> dict:
     deserializer = boto3.dynamodb.types.TypeDeserializer()
     python_obj = {k: deserializer.deserialize(v) for k, v in dynamo_item.items()}
-    # Primary Keyの変更: PK, SKをticket attributeに変換
-    python_obj['channel'] = python_obj['SK'].split('#')[1]
+
+    # python_obj['channel'] = python_obj['SK'].split('#')[1]
+    # del python_obj['PK']
+    # del python_obj['SK']
+    # return python_obj
+
+    # EventEnvelopの変換
+    python_obj['aggregate'] = python_obj['PK'].split('#')[0]
+    python_obj['aggregate_id'] = python_obj['PK'].split('#')[1]
+    python_obj['event_type'] = python_obj['SK'].split('#')[1]
+    python_obj['event_id'] = int(python_obj['SK'].split('#')[3])  # intに変換する
     del python_obj['PK']
     del python_obj['SK']
+
     return python_obj
 
 
 def event_publish(record):
     # publish to EventBridge
+
     resp = eventbus.put_events(
         Entries=[
             {
@@ -39,35 +51,50 @@ def event_publish(record):
             }
         ],
     )
-    print(f'put_event.Detail: {json.dumps(record, cls=JSONEncoder)}')
+    print(f'event_publish() put_event.Detail: {json.dumps(record, cls=JSONEncoder)}')
     print(f'EventBridge put_events resp: {resp}')
+
+
+def is_dynamo_insert(record):
+    if record['eventName'] != 'INSERT':
+        """INSERTでない"""
+        return False
+    return True
+
+
+def is_kitchen_ticket_domain_event(record):
+    if not record['dynamodb']['NewImage']['PK']['S'].startswith('TICKET#'):
+        """KitchenTicketDomainEventでない!!"""
+        return False
+    return True
 
 
 def event_handler(record):
 
-    if record['eventName'] != 'INSERT':
+    if not is_dynamo_insert(record):
+        return
+    if not is_kitchen_ticket_domain_event(record):
         return
 
-    dynamo_item = record['dynamodb']['NewImage']
-    python_obj = convert_to_python_obj(dynamo_item)
-    channel = python_obj['channel']
+    python_obj = convert_to_python_obj(record['dynamodb']['NewImage'])
 
-    if channel == "TicketAccepted":
+    event_type = python_obj['event_type']
+    if event_type == "TicketCreated":
         event_publish(python_obj)
-    elif channel == "TicketCreated":
-        pass
-    elif channel == "TicketCancelled":
+    elif event_type == "TicketAccepted":
         event_publish(python_obj)
-    elif channel == "TicketPreparationStarted":
+    elif event_type == "TicketCancelled":
+        event_publish(python_obj)
+    elif event_type == "TicketPreparationStarted":
         pass
-    elif channel == "TicketPreparationCompleted":
+    elif event_type == "TicketPreparationCompleted":
         pass
-    elif channel == "TicketPickedUp":
+    elif event_type == "TicketPickedUp":
         pass
-    elif channel == "TicketRevised":
+    elif event_type == "TicketRevised":
         pass
     else:
-        raise UnsupportedEventChannelException(f'channel:{channel}')
+        raise UnsupportedEventChannelException(f'event_type:{event_type}')
 
 
 def lambda_handler(event, context):

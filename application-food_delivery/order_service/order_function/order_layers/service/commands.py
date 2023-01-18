@@ -1,8 +1,9 @@
+"""
+Commands from client with REST API
+"""
 import json
 import dataclasses
 import decimal
-from datetime import datetime
-from order_layers.common import common
 from order_layers.domain import order_model
 
 

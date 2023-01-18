@@ -5,8 +5,10 @@ from kitchen_layer.common import common
 from kitchen_layer.domain import restaurant_model
 
 
+@dataclasses.dataclass
 class Event:
-    pass
+    event_id: int       # 追加 for event_envelope
+    timestamp: str      # 追加 for event_envelope
 
 
 @dataclasses.dataclass
@@ -17,6 +19,9 @@ class RestaurantCreated(Event):
     @classmethod
     def from_event(cls, event: dict):
         d = dict()
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
         d['restaurant_id'] = event['restaurant_id']
         d['menu_items'] = [restaurant_model.MenuItem.from_dict(item)
                            for item in event['menu_items']]

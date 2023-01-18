@@ -7,19 +7,13 @@ from order_layers.common import common
 from order_layers.domain import order_model
 
 
+@dataclasses.dataclass
 class DomainEvent:
-    # Todo:
-    #  event_id: int = None  # Domainでシーケンシャルにする -> Serviceで実装する
-    #  timestamp: str        # 集計などに使う -> Serviceで実装する
-    #  user_id: list[str]  # list[str] or list[int]  # 監査目的に使う -> Serviceで実装する
-    #  aggregate_id: str     # デバッグなどに使う -> Serviceで実装する
-    pass
+    order_id: str
 
 
 @dataclasses.dataclass
 class OrderCreated(DomainEvent):
-    event_id: str
-    order_id: str
     order_details: order_model.OrderDetails
     delivery_information: order_model.DeliveryInformation
 
@@ -46,8 +40,7 @@ class OrderCreated(DomainEvent):
 # ---------------------------------------------------------
 @dataclasses.dataclass
 class OrderAuthorized(DomainEvent):
-    event_id: str
-    order_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -55,8 +48,7 @@ class OrderAuthorized(DomainEvent):
 
 @dataclasses.dataclass
 class OrderRejected(DomainEvent):
-    event_id: str
-    order_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -64,8 +56,6 @@ class OrderRejected(DomainEvent):
 
 @dataclasses.dataclass
 class CancelOrderSagaRequested(DomainEvent):
-    event_id: str
-    order_id: str
     consumer_id: int
     order_total: common.Money
 
@@ -75,8 +65,7 @@ class CancelOrderSagaRequested(DomainEvent):
 
 @dataclasses.dataclass
 class OrderCancelled(DomainEvent):
-    event_id: str
-    order_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -84,8 +73,6 @@ class OrderCancelled(DomainEvent):
 
 @dataclasses.dataclass
 class ReviseOrderSagaRequested(DomainEvent):
-    event_id: str
-    order_id: str
     consumer_id: int
     order_revision: order_model.OrderRevision
 
@@ -108,8 +95,6 @@ class ReviseOrderSagaRequested(DomainEvent):
 
 @dataclasses.dataclass
 class OrderRevised(DomainEvent):
-    event_id: str
-    order_id: str
     order_revision: order_model.OrderRevision
     current_order_total: common.Money
     new_order_total: common.Money
@@ -141,8 +126,6 @@ class OrderRevised(DomainEvent):
 
 @dataclasses.dataclass
 class OrderRevisionProposed(DomainEvent):
-    event_id: str
-    order_id: str
     order_revision: order_model.OrderRevision
     current_order_total: common.Money
     new_order_total: common.Money

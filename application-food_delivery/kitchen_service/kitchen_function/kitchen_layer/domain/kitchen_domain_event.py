@@ -4,28 +4,23 @@ import json
 import dataclasses
 import decimal
 from kitchen_layer.domain import ticket_model
-from kitchen_layer.common import common
 
 
+@dataclasses.dataclass
 class DomainEvent:
-    pass
+    ticket_id: str
 
 
 # Todo: for Saga
 @dataclasses.dataclass
 class TicketCreated(DomainEvent):
-    event_id: str
-    ticket_id: str
     restaurant_id: int
-    # line_items: ticket_model.TicketDetails
     line_items: list[ticket_model.TicketLineItem]
 
     @staticmethod
     def encoder_(o):
         if isinstance(o, TicketCreated):
             return o.__dict__
-        # if isinstance(o, ticket_model.TicketDetails):
-        #     return o.line_items
         if isinstance(o, ticket_model.TicketLineItem):
             return o.__dict__
         if isinstance(o, decimal.Decimal):  # Todo: Service内のDecimal処理をどうする？
@@ -41,8 +36,7 @@ class TicketCreated(DomainEvent):
 
 @dataclasses.dataclass
 class TicketCancelled(DomainEvent):
-    event_id: str
-    ticket_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -50,17 +44,7 @@ class TicketCancelled(DomainEvent):
 
 @dataclasses.dataclass
 class TicketAccepted(DomainEvent):
-    event_id: str
-    ticket_id: str
     ready_by: datetime.datetime
-
-    # Todo: Implement
-    # @classmethod
-    # def from_json(cls, body_json):
-    #     body_dict = json.loads(body_json, parse_float=decimal.Decimal, parse_int=decimal.Decimal)
-    #     # Todo: intもfloatもDecimal()にする!!
-    #     restaurant = model.Restaurant.from_dict(body_dict)
-    #     return cls(restaurant=restaurant)
 
     def to_dict(self):
         def encoder_(o):
@@ -75,26 +59,25 @@ class TicketAccepted(DomainEvent):
 # Todo: 使われてないかも
 @dataclasses.dataclass
 class TicketPreparationStarted(DomainEvent):
-    event_id: str
-    ticket_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
+
 
 # Todo: 使われてないかも
 @dataclasses.dataclass
 class TicketPreparationCompleted(DomainEvent):
-    event_id: str
-    ticket_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
 
+
 # Todo: 使われてないかも
 @dataclasses.dataclass
 class TicketPickedUp(DomainEvent):
-    event_id: str
-    ticket_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)
@@ -102,8 +85,7 @@ class TicketPickedUp(DomainEvent):
 
 @dataclasses.dataclass
 class TicketRevised(DomainEvent):
-    event_id: str
-    ticket_id: str
+    pass
 
     def to_dict(self):
         return dataclasses.asdict(self)

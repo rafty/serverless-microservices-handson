@@ -30,6 +30,7 @@ class OrderServiceStack(Stack):
                         self,
                         'OrderServiceFunction',
                         props={
+                            'env': kwargs.get('env'),  # aws_cdk.Environment
                             'order_table': order_table,
                             'order_event_table': order_event_table,
                             'restaurant_replica_table': restaurant_replica_table,

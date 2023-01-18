@@ -8,14 +8,16 @@ from delivery_layer.service import events
 
 class Handler:
 
-    def __init__(self, delivery_repo, restaurant_repo, courier_repo):
+    def __init__(self, delivery_repo, delivery_event_repo, restaurant_repo, courier_repo):
 
         self.delivery_service = service.DeliveryService(delivery_repo=delivery_repo,
+                                                        delivery_event_repo=delivery_event_repo,
                                                         restaurant_repo=restaurant_repo,
                                                         courier_repo=courier_repo)
         self.EVENT_HANDLER = {
             events.RestaurantCreated: getattr(self.delivery_service, 'create_replica_restaurant'),
             events.OrderCreated: getattr(self.delivery_service, 'create_delivery'),
+            # events.TicketCreated: getattr(self.delivery_service, 'create_delivery'),
             events.TicketAccepted: getattr(self.delivery_service, 'schedule_delivery'),
             events.TicketCancelled: getattr(self.delivery_service, 'cancel_delivery'),
         }
@@ -23,6 +25,8 @@ class Handler:
         self.COMMAND_HANDLER = {
             commands.CourierAvailability: getattr(self.delivery_service,
                                                   'update_courier_availability'),
+            commands.CourierPickedUp: getattr(self.delivery_service, 'update_pickedup'),
+            commands.CourierDelivered: getattr(self.delivery_service, 'update_delivered'),
         }
 
     def events_handler(self, event: events.Event):

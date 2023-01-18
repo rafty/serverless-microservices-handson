@@ -5,6 +5,7 @@ from aws_cdk import aws_events
 from aws_cdk import aws_events_targets
 from aws_cdk import aws_sqs
 from aws_cdk import aws_lambda_event_sources
+from aws_cdk import aws_sam
 
 
 class DeliveryFunctionConstructor(Construct):
@@ -13,8 +14,10 @@ class DeliveryFunctionConstructor(Construct):
         super().__init__(scope, id_)
         self.props = props
         self.delivery_table = props['delivery_table']
+        self.delivery_event_table = props['delivery_event_table']
         self.courier_table = props['courier_table']
         self.restaurant_replica_table = props['restaurant_replica_table']
+
         self.function = self.create_delivery_function()
 
     def create_delivery_function(self) -> aws_lambda.Function:
@@ -27,13 +30,17 @@ class DeliveryFunctionConstructor(Construct):
             handler='lambda_function.lambda_handler',
             code=aws_lambda.Code.from_asset('application-food_delivery'
                                             '/delivery_service/delivery_function'),
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
             environment={
                 'DYNAMODB_TABLE_NAME': self.delivery_table.table_name,
-                'DYNAMODB_EVENT_TABLE_NAME': self.courier_table.table_name,
+                'DYNAMODB_EVENT_TABLE_NAME': self.delivery_event_table.table_name,
+                'COURIER_TABLE_NAME': self.courier_table.table_name,
                 'DYNAMODB_RESTAURANT_REPLICA_TABLE_NAME': self.restaurant_replica_table.table_name,
             }
         )
         self.delivery_table.table.grant_read_write_data(delivery_function)
+        self.delivery_event_table.table.grant_read_write_data(delivery_function)
         self.courier_table.table.grant_read_write_data(delivery_function)
         self.restaurant_replica_table.table.grant_read_write_data(delivery_function)
 
@@ -53,8 +60,8 @@ class DeliveryFunctionConstructor(Construct):
         )
         restaurant_service_created_event_rule = aws_events.Rule(
             self,
-            'RestaurantServiceRestaurantCreatedRule',
-            rule_name='RestaurantCreatedRuleForDeliveryService',  # RuleはService毎に名前を変える必要
+            'DeliveryServiceRestaurantCreatedRule',
+            rule_name='RestaurantEventsRuleForDeliveryService',  # RuleはService毎に名前を変える必要
             description='When Restaurant microservice created the restaurant and menu',
             event_bus=restaurant_eventbus,
             event_pattern=aws_events.EventPattern(
@@ -82,9 +89,9 @@ class DeliveryFunctionConstructor(Construct):
         )
         order_service_created_event_rule = aws_events.Rule(
             self,
-            'OrderServiceOrderCreatedRule',
-            rule_name='OrderCreatedRuleForDeliveryService',  # RuleはService毎に名前を変える必要
-            description='When Order microservice created the restaurant and menu',
+            'DeliveryServiceOrderCreatedRule',
+            rule_name='OrderCreatedRuleForDeliveryService',  # RuleはService毎に名前を変える必要がある
+            description='When Order microservice created the Order',
             event_bus=order_eventbus,
             event_pattern=aws_events.EventPattern(
                 source=['com.order.created'],
@@ -93,7 +100,7 @@ class DeliveryFunctionConstructor(Construct):
             enabled=True,
         )
 
-        dead_letter_queue = aws_sqs.Queue(self, 'OrderCreatedEventDeadLetterQueue')
+        dead_letter_queue = aws_sqs.Queue(self, 'DeliveryOrderCreatedEventDeadLetterQueue')
 
         order_service_created_event_rule.add_target(
                                             aws_events_targets.LambdaFunction(
@@ -112,8 +119,8 @@ class DeliveryFunctionConstructor(Construct):
         )
         kitchen_service_ticket_accepted_event_rule = aws_events.Rule(
             self,
-            'KitchenServiceTicketAcceptedRule',
-            rule_name='TicketAcceptedRuleForDeliveryService',  # RuleはService毎に名前を変える必要
+            'DeliveryServiceTicketAcceptedEventRule',
+            rule_name='TicketEventsRuleForDeliveryService',  # RuleはService毎に名前を変える必要
             description='When Kitchen microservice accepted Ticket',
             event_bus=ticket_eventbus,
             event_pattern=aws_events.EventPattern(
@@ -123,7 +130,7 @@ class DeliveryFunctionConstructor(Construct):
             enabled=True,
         )
 
-        dead_letter_queue = aws_sqs.Queue(self, 'TicketAcceptedEventDeadLetterQueue')
+        dead_letter_queue = aws_sqs.Queue(self, 'DeliveryTicketAcceptedEventDeadLetterQueue')
 
         kitchen_service_ticket_accepted_event_rule.add_target(
                                                     aws_events_targets.LambdaFunction(
@@ -132,45 +139,82 @@ class DeliveryFunctionConstructor(Construct):
                                                         max_event_age=aws_cdk.Duration.hours(2),
                                                         retry_attempts=2))
 
-# class DeliveryEventFunctionConstructor(Construct):
-#
-#     def __init__(self, scope: "Construct", id_: str, props: dict) -> None:
-#         super().__init__(scope, id_)
-#         self.props = props
-#         self.dynamodb_streams_source = props['dynamodb_streams_source']
-#         self.state_machine_for_create_delivery_saga = props['state_machine_for_create_delivery_saga']
-#         self.state_machine_for_cancel_delivery_saga = props['state_machine_for_cancel_delivery_saga']
-#         self.state_machine_for_revise_delivery_saga = props['state_machine_for_revise_delivery_saga']
-#
-#         self.function = self.create_delivery_event_function()
-#
-#     def create_delivery_event_function(self) -> aws_lambda.Function:
-#
-#         function = aws_lambda.Function(
-#             self,
-#             'DeliveryEventFunction',
-#             function_name='delivery_event_function',
-#             runtime=aws_lambda.Runtime.PYTHON_3_9,
-#             handler='lambda_function.lambda_handler',
-#             code=aws_lambda.Code.from_asset('application-food_delivery/delivery_service'
-#                                             '/delivery_domain_event_function'),
-#             environment={
-#                 'STATEMACHINE_ARN_FOR_CREATE_ORDER_SAGA': self.state_machine_for_create_delivery_saga.state_machine_arn,
-#                 'STATEMACHINE_ARN_FOR_CANCEL_ORDER_SAGA': self.state_machine_for_cancel_delivery_saga.state_machine_arn,
-#                 'STATEMACHINE_ARN_FOR_REVISE_ORDER_SAGA': self.state_machine_for_revise_delivery_saga.state_machine_arn,
-#             },
-#         )
-#         self.state_machine_for_create_delivery_saga.grant_start_execution(function)
-#         self.state_machine_for_cancel_delivery_saga.grant_start_execution(function)
-#         self.state_machine_for_revise_delivery_saga.grant_start_execution(function)
-#
-#         # DynamoDB Streams
-#         function.add_event_source(
-#             aws_lambda_event_sources.DynamoEventSource(
-#                 table=self.dynamodb_streams_source,
-#                 starting_position=aws_lambda.StartingPosition.LATEST,
-#                 # filters=[{"event_name": aws_lambda.FilterRule.is_equal("INSERT")}]
-#             )
-#         )
-#
-#         return function
+    def lambda_powertools(self):
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version
+
+
+class DeliveryEventFunctionConstructor(Construct):
+
+    def __init__(self, scope: "Construct", id_: str, props: dict) -> None:
+        super().__init__(scope, id_)
+        self.props = props
+        self.dynamodb_streams_source = props['dynamodb_streams_source']
+
+        self.eventbus = props['eventbus']
+        self.eventbus_name = self.eventbus.eventbus.event_bus_name
+        self.event_source = self.eventbus.event_source
+        self.event_detail_type = self.eventbus.event_detail_type
+
+        self.function = self.create_delivery_event_function()
+
+    def create_delivery_event_function(self) -> aws_lambda.Function:
+
+        function = aws_lambda.Function(
+            self,
+            'DeliveryEventFunction',
+            function_name='delivery_event_function',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            handler='lambda_function.lambda_handler',
+            code=aws_lambda.Code.from_asset('application-food_delivery/delivery_service'
+                                            '/delivery_domain_event_function'),
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
+            environment={
+                'EVENT_BUS_NAME': self.eventbus_name,
+                'EVENT_SOURCE': self.event_source,
+                'EVENT_DETAIL_TYPE': self.event_detail_type,
+            },
+        )
+        self.eventbus.eventbus.grant_put_events_to(function)
+
+        # DynamoDB Streams
+        function.add_event_source(
+            aws_lambda_event_sources.DynamoEventSource(
+                table=self.dynamodb_streams_source,
+                starting_position=aws_lambda.StartingPosition.LATEST,
+                # filters=[{"event_name": aws_lambda.FilterRule.is_equal("INSERT")}]
+            )
+        )
+
+        return function
+
+    def lambda_powertools(self):
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version

@@ -48,6 +48,20 @@ class DynamoDbRepository(AbstractRepository):
                 'time' = '2022-11-30T05:00:30.001000Z'
             },
         ]
+        done: [                     - List[Map]
+            {
+                'action_type': 'PICKUP',
+                'delivery_id': 1,
+                'address': {
+                    'street1': '1 Main Street',
+                    'street2': 'Unit 99',
+                    'city': 'Oakland',
+                    'state': 'CA',
+                    'zip': '94611'
+                },
+                'time' = '2022-11-30T05:00:30.001000Z'
+            },
+        ]
     """
 
     def __init__(self):
@@ -130,7 +144,7 @@ class DynamoDbRepository(AbstractRepository):
         with dx.dynamo_exception_check():
             resp = self.client.scan(
                 TableName=self.table_name,
-                IndexName='CourierAvailable')  # CourierAvailable GSI
+                IndexName='CourierAvailable')  # CourierAvailable DynamoDB GSI
 
         print(f'resp: {resp}')
         if not resp.get('Items', None):
@@ -149,7 +163,7 @@ class DynamoDbRepository(AbstractRepository):
         del python_obj['SK']
         if python_obj.get('courier_available', None):
             # sparce index (available) の対応
-            # - python_obj['courier_available']はdomain modelではない。削除する
+            # - 'courier_available'はdomain modelではなくDynamoDB Sparse Index。削除する
             del python_obj['courier_available']
 
         courier = courier_model.Courier.from_dict(python_obj)

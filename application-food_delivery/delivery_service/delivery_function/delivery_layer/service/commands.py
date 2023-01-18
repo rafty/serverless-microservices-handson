@@ -15,6 +15,19 @@ class CourierAvailability(Command):
     available: bool
 
 
+# java sampleに無い
+@dataclasses.dataclass
+class CourierPickedUp(Command):
+    courier_id: int
+    delivery_id: str
+
+
+# java sampleに無い
+@dataclasses.dataclass
+class CourierDelivered(Command):
+    courier_id: int
+    delivery_id: str
+
 
 # @dataclasses.dataclass
 # class CreateDelivery(Command):

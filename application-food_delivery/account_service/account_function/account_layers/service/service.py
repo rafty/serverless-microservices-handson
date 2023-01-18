@@ -1,6 +1,7 @@
 from account_layers.domain import account_model
 from account_layers.service import commands
 from account_layers.common import exceptions
+from account_layers.service.domain_event_envelope import DomainEventEnvelope
 
 
 class AccountService:
@@ -10,12 +11,11 @@ class AccountService:
         self.account_event_repo = account_event_repo
 
     def create_account(self, cmd: commands.CreateAccount):
-        account, domain_events = account_model.Account.create(
-                                                            consumer_id=cmd.consumer_id,
-                                                            card_information=cmd.card_information)
+        account, domain_event = account_model.Account.create(consumer_id=cmd.consumer_id,
+                                                             card_information=cmd.card_information)
         self.account_repo.save(account)
 
-        self.account_event_repo.save(events=domain_events)
+        self.account_event_repo.save(event=DomainEventEnvelope.wrap(domain_event))
 
         return account
 

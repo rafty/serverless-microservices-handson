@@ -9,15 +9,18 @@ from delivery_layer.service import events
 from delivery_layer.service import handlers
 from delivery_layer.adaptors import restaurant_replica_repository
 from delivery_layer.adaptors import delivery_repository
+from delivery_layer.adaptors import delivery_event_repository
 from delivery_layer.adaptors import courier_repository
 from delivery_layer.domain import delivery_model
 
 
 DELIVERY_REPOSITORY = delivery_repository.DynamoDbRepository()
+DELIVERY_EVENT_REPOSITORY = delivery_event_repository.DynamoDbRepository()
 COURIER_REPOSITORY = courier_repository.DynamoDbRepository()
 RESTAURANT_REPLICA_REPOSITORY = restaurant_replica_repository.DynamoDbRepository()
 
 HANDLER = handlers.Handler(delivery_repo=DELIVERY_REPOSITORY,
+                           delivery_event_repo=DELIVERY_EVENT_REPOSITORY,
                            courier_repo=COURIER_REPOSITORY,
                            restaurant_repo=RESTAURANT_REPLICA_REPOSITORY)
 
@@ -29,31 +32,41 @@ HANDLER = handlers.Handler(delivery_repo=DELIVERY_REPOSITORY,
 def extract_parameter_from_event(event):
     event_source = event.get('source', None)
     event_detail = event.get('detail', None)
-    channel = event.get('detail', None).get('channel')
-    return event_source, event_detail, channel
+    event_type = event.get('detail', None).get('event_type')
+    return event_source, event_detail, event_type
 
 
 def eventbus_invocation(event: dict):
     try:
-        event_source, event_detail, channel = extract_parameter_from_event(event)
-        if event_source == 'com.restaurant.created' and channel == 'RestaurantCreated':
+        event_source, event_detail, event_type = extract_parameter_from_event(event)
+        if event_source == 'com.restaurant.created' and event_type == 'RestaurantCreated':
             event_ = events.RestaurantCreated.from_event(event_detail)
             HANDLER.events_handler(event_)
 
-        elif event_source == 'com.order.created' and channel == 'OrderCreated':
+        elif event_source == 'com.order.created' and event_type == 'OrderCreated':
+            print(f'eventbus_invocation() OrderCreated')
             event_ = events.OrderCreated.from_event(event_detail)
             HANDLER.events_handler(event_)
 
-        elif event_source == 'com.ticket.accepted' and channel == 'TicketAccepted':
+        elif event_source == 'com.order.created' and event_type == 'OrderAuthorized':
+            pass
+
+        elif event_source == 'com.ticket.accepted' and event_type == 'TicketCreated':
+            pass
+            # event_ = events.TicketCreated.from_event(event_detail)
+            # HANDLER.events_handler(event_)
+            # 現在TicketCreatedはDeliveryで使用していない。
+
+        elif event_source == 'com.ticket.accepted' and event_type == 'TicketAccepted':
             event_ = events.TicketAccepted.from_event(event_detail)
             HANDLER.events_handler(event_)
 
-        elif event_source == 'com.ticket.accepted' and channel == 'TicketCancelled':
+        elif event_source == 'com.ticket.accepted' and event_type == 'TicketCancelled':
             event_ = events.TicketCancelled.from_event(event_detail)
             HANDLER.events_handler(event_)
 
         else:
-            raise Exception(f"NotSupportEvent: {event_source} : {channel}")
+            raise Exception(f"NotSupportEvent: {event_source} : {event_type}")
         return None
 
     except Exception as e:
@@ -91,6 +104,19 @@ def rest_invocation(event: dict):
             print(f'rest_invocation: courier availability: {d}')
             cmd = commands.CourierAvailability(courier_id=path_parameters.get('courier_id'),
                                                available=d['available'])
+        # Todo ここから 2023.01.16
+        elif re.fullmatch('/couriers/[0-9a-f]+/pickedup', path) and http_method == 'POST':
+            d = json.loads(body_json, parse_float=decimal.Decimal)
+            print(f'rest_invocation: courier pickedup: {d}')
+
+            cmd = commands.CourierPickedUp(courier_id=path_parameters.get('courier_id'),
+                                           delivery_id=d['delivery_id'])
+        elif re.fullmatch('/couriers/[0-9a-f]+/delivered', path) and http_method == 'POST':
+            d = json.loads(body_json, parse_float=decimal.Decimal)
+            print(f'rest_invocation: courier delivered: {d}')
+
+            cmd = commands.CourierDelivered(courier_id=path_parameters.get('courier_id'),
+                                            delivery_id=d['delivery_id'])
         else:
             raise exception.UnsupportedRoute(f'Unsupported Route :{http_method}')
 

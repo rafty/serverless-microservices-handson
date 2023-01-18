@@ -1,12 +1,13 @@
 import dataclasses
 import datetime
-import json
-import decimal
 from delivery_layer.common import common
+from delivery_layer.domain import ticket_model
 
 
+@dataclasses.dataclass
 class Event:
-    pass
+    event_id: int       # 追加 for event_envelope
+    timestamp: str      # 追加 for event_envelope
 
 
 @dataclasses.dataclass
@@ -18,9 +19,32 @@ class OrderCreated(Event):
     @classmethod
     def from_event(cls, event: dict):
         d = dict()
+
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
         d['order_id'] = event['order_id']
         d['delivery_address'] = event['delivery_information']['delivery_address']
         d['restaurant_id'] = event['order_details']['restaurant_id']
+        return cls(**d)
+
+
+@dataclasses.dataclass
+class TicketCreated(Event):
+    ticket_id: str
+    restaurant_id: int
+    line_items: [ticket_model.TicketLineItem]
+
+    @classmethod
+    def from_event(cls, event: dict):
+        d = dict()
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
+        d['ticket_id'] = event['ticket_id']
+        d['restaurant_id'] = event['restaurant_id']
+        d['line_items'] = [ticket_model.TicketLineItem.from_dict(item)
+                           for item in event['line_items']]
         return cls(**d)
 
 
@@ -32,6 +56,9 @@ class TicketAccepted(Event):
     @classmethod
     def from_event(cls, event: dict):
         d = dict()
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
         d['ticket_id'] = event['ticket_id']
         d['ready_by'] = datetime.datetime.strptime(event['ready_by'], '%Y-%m-%dT%H:%M:%S.%fZ')
         return cls(**d)
@@ -44,6 +71,10 @@ class TicketCancelled(Event):
     @classmethod
     def from_event(cls, event: dict):
         d = dict()
+
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
         d['ticket_id'] = event['ticket_id']
         return cls(**d)
 
@@ -57,6 +88,9 @@ class RestaurantCreated(Event):
     @classmethod
     def from_event(cls, event: dict):
         d = dict()
+        d['event_id'] = event['event_id']       # 追加 for event_envelope
+        d['timestamp'] = event['timestamp']     # 追加 for event_envelope
+
         d['restaurant_id'] = event['restaurant_id']
         d['restaurant_name'] = event['restaurant_name']
         d['restaurant_address'] = common.Address.from_dict(event['restaurant_address'])

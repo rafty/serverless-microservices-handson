@@ -4,6 +4,7 @@ from kitchen_layer.domain import restaurant_model
 from kitchen_layer.service import events
 from kitchen_layer.service import commands
 from kitchen_layer.common import common
+from kitchen_layer.service.domain_event_envelope import DomainEventEnvelope
 
 
 class KitchenService:
@@ -30,7 +31,7 @@ class KitchenService:
     # ------------------------------------------------------------
     def create_replica_restaurant(self, event: events.RestaurantCreated):
         restaurant = restaurant_model.Restaurant(event.restaurant_id, event.menu_items)
-        self.restaurant_replica_repo.save(restaurant)
+        self.restaurant_replica_repo.save(restaurant, event.event_id, event.timestamp)
 
     # ------------------------------------------------------------
     # Create Saga - action: CREATE_TICKET
@@ -45,13 +46,15 @@ class KitchenService:
         #  RestaurantDomainとTicketの間の処理なので、ServiceLayerで実装する？
 
         print(f'service.py create_ticket: {cmd}')
-        ticket, events_ = ticket_model.Ticket.create_ticket(ticket_id=cmd.ticket_id,
-                                                            restaurant_id=cmd.restaurant_id,
-                                                            line_items=cmd.line_items)
+        ticket, event = ticket_model.Ticket.create_ticket(ticket_id=cmd.ticket_id,
+                                                          restaurant_id=cmd.restaurant_id,
+                                                          line_items=cmd.line_items)
 
         # Todo: 両方のsave()をTransactionで・・・
         self.kitchen_repo.save(ticket)
-        self.kitchen_event_repo.save(events_)  # To TicketEvent Channel
+        if event:
+            self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
+
         # return True
         return {'ticket_id': ticket.ticket_id}  # Todo: Sagaで後続がticket_id使うためリターンする
 
@@ -61,9 +64,10 @@ class KitchenService:
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
 
         if ticket:
-            ticket_, events_ = ticket.cancel_create()
+            ticket_, event = ticket.cancel_create()
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -74,9 +78,10 @@ class KitchenService:
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
 
         if ticket:
-            ticket_, events_ = ticket.confirm_create()
+            ticket_, event = ticket.confirm_create()
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -89,9 +94,10 @@ class KitchenService:
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
 
         if ticket:
-            ticket_, events_ = ticket.cancel()
+            ticket_, event = ticket.cancel()
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -101,9 +107,10 @@ class KitchenService:
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
 
         if ticket:
-            ticket_, events_ = ticket.confirm_cancel()
+            ticket_, event = ticket.confirm_cancel()
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -114,9 +121,10 @@ class KitchenService:
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
 
         if ticket:
-            ticket_, events_ = ticket.undo_cancel()
+            ticket_, event = ticket.undo_cancel()
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -130,9 +138,10 @@ class KitchenService:
 
         if ticket:
             # Todo: verify restaurant id  -> 現時点でrestaurant_idは使っていない
-            ticket_, events_ = ticket.begin_revise_ticket(cmd.revised_order_line_items)
+            ticket_, event = ticket.begin_revise_ticket(cmd.revised_order_line_items)
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -143,9 +152,10 @@ class KitchenService:
 
         if ticket:
             # Todo: verify restaurant id  -> 現時点でrestaurant_idは使っていない
-            ticket_, events_ = ticket.confirm_revise_ticket(cmd.revised_order_line_items)
+            ticket_, event = ticket.confirm_revise_ticket(cmd.revised_order_line_items)
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -157,10 +167,10 @@ class KitchenService:
 
         if ticket:
             # Todo: verify restaurant id  -> 現時点でrestaurant_idは使っていない
-            ticket_, events_ = ticket.undo_begin_revise_ticket()
+            ticket_, event = ticket.undo_begin_revise_ticket()
             self.kitchen_repo.save(ticket_)
-            if events_:
-                self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: Saga reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(
@@ -170,9 +180,10 @@ class KitchenService:
     def accept_ticket(self, cmd: commands.AcceptTicket):
         ticket: ticket_model.Ticket = self.kitchen_repo.find_by_id(cmd.ticket_id)
         if ticket:
-            ticket_, events_ = ticket.accept(cmd.ready_by)
+            ticket_, event = ticket.accept(cmd.ready_by)
             self.kitchen_repo.save(ticket_)
-            self.kitchen_event_repo.save(events_)
+            if event:
+                self.kitchen_event_repo.save(DomainEventEnvelope.wrap(event))
             return True  # Todo: REST reply 正常
         else:
             raise common.exceptions.TicketNotFoundException(

@@ -5,6 +5,7 @@ from aws_cdk import aws_events
 from aws_cdk import aws_events_targets
 from aws_cdk import aws_sqs
 from aws_cdk import aws_lambda_event_sources
+from aws_cdk import aws_sam
 
 
 class ConsumerFunctionConstructor(Construct):
@@ -27,6 +28,8 @@ class ConsumerFunctionConstructor(Construct):
             handler='lambda_function.lambda_handler',
             code=aws_lambda.Code.from_asset('application-food_delivery'
                                             '/consumer_service/consumer_function'),
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
             environment={
                 'DYNAMODB_TABLE_NAME': self.consumer_table.table_name,
                 'DYNAMODB_EVENT_TABLE_NAME': self.consumer_event_table.table_name,
@@ -45,6 +48,24 @@ class ConsumerFunctionConstructor(Construct):
         )
 
         return consumer_function
+
+    def lambda_powertools(self):
+
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version
 
 
 class ConsumerEventFunctionConstructor(Construct):
@@ -66,8 +87,9 @@ class ConsumerEventFunctionConstructor(Construct):
             handler='lambda_function.lambda_handler',
             code=aws_lambda.Code.from_asset('application-food_delivery/consumer_service'
                                             '/consumer_domain_event_function'),
-            environment={
-            },
+            tracing=aws_lambda.Tracing.ACTIVE,  # for X-Ray
+            layers=[self.lambda_powertools()],  # for X-Ray SDK
+            environment={},
         )
 
         # DynamoDB Streams Source
@@ -80,3 +102,21 @@ class ConsumerEventFunctionConstructor(Construct):
         )
 
         return function
+
+    def lambda_powertools(self):
+
+        power_tools_layer = aws_sam.CfnApplication(
+            scope=self,
+            id='AWSLambdaPowertoolsLayer',
+            location={
+                'applicationId': ('arn:aws:serverlessrepo:eu-west-1:057560766410'
+                                  ':applications/aws-lambda-powertools-python-layer'),
+                'semanticVersion': '2.6.0'
+            }
+        )
+        power_tools_layer_arn = power_tools_layer.get_att('Outputs.LayerVersionArn').to_string()
+        power_tools_layer_version = aws_lambda.LayerVersion.from_layer_version_arn(
+                scope=self,
+                id='AWSLambdaPowertoolsLayerVersion',
+                layer_version_arn=power_tools_layer_arn)
+        return power_tools_layer_version

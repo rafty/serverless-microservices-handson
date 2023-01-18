@@ -11,23 +11,27 @@ EVENT_DETAIL_TYPE = os.environ.get('EVENT_DETAIL_TYPE')
 eventbus = boto3.client('events')
 
 
+class UnsupportedEventChannelException(Exception):
+    pass
+
+
 def convert_to_python_obj(dynamo_item) -> dict:
     deserializer = boto3.dynamodb.types.TypeDeserializer()
     python_obj = {k: deserializer.deserialize(v) for k, v in dynamo_item.items()}
 
-    # Primary Keyの変更: PK, SKをticket attributeに変換
-    python_obj['channel'] = python_obj['SK'].split('#')[1]
-    # Todo: 元からあるので以下の処理を削除した。
-    # python_obj['restaurant_id'] = int(python_obj['PK'].split('#')[1])
-    # python_obj['event_id'] = python_obj['SK'].split('#')[3]
+    print(f'convert_to_python_obj()) python_obj: {json.dumps(python_obj, cls=JSONEncoder)}')
+
+    python_obj['aggregate'] = python_obj['PK'].split('#')[0]
+    # python_obj['channel'] = python_obj['SK'].split('#')[1]
+    python_obj['event_type'] = python_obj['SK'].split('#')[1]
 
     del python_obj['PK']
     del python_obj['SK']
-
     """
+    convert_to_python_obj()) python_obj: 
     {
-        "event_id": "2c1a2c8d82e24dc99dcef140cd661ee7",
-        "restaurant_id": 16,
+        "event_id": 3,
+        "restaurant_id": 31,
         "restaurant_address": {
             "zip": "94611",
             "city": "Oakland",
@@ -35,7 +39,7 @@ def convert_to_python_obj(dynamo_item) -> dict:
             "street2": "Unit 99",
             "state": "CA"
         },
-        "SK": "CHANNEL#RestaurantCreated#EVENTID#2c1a2c8d82e24dc99dcef140cd661ee7",
+        "SK": "EVENTTYPE#RestaurantCreated#EVENTID#3",
         "menu_items": [
             {
                 "price": {
@@ -62,12 +66,11 @@ def convert_to_python_obj(dynamo_item) -> dict:
                 "menu_id": "000003"
             }
         ],
-        "PK": "RESTAURANT#16",
+        "PK": "RESTAURANT#31",
         "restaurant_name": "skylark",
-        "channel": "RestaurantCreated"
+        "timestamp": "2022-12-28T09:19:51.664450Z"
     }
     """
-
     return python_obj
 
 
@@ -91,6 +94,39 @@ def dynamodb_streams_record_publish(record):
     print(f'EventBridge put_events resp: {resp}')
 
 
+def is_dynamo_insert(record):
+    if record['eventName'] != 'INSERT':
+        """INSERTでない"""
+        return False
+    return True
+
+
+def is_restaurant_domain_event(record):
+    if not record['dynamodb']['NewImage']['PK']['S'].startswith('RESTAURANT#'):
+        """OrderDomainEventでない!!"""
+        return False
+    return True
+
+
+def event_handler(record):
+
+    if not is_dynamo_insert(record):
+        return
+    if not is_restaurant_domain_event(record):
+        return
+
+    dynamo_item = record['dynamodb']['NewImage']
+
+    python_obj = convert_to_python_obj(dynamo_item)
+    print(json.dumps(python_obj, cls=JSONEncoder))
+
+    event_type = python_obj['event_type']
+    if event_type == "RestaurantCreated":
+        dynamodb_streams_record_publish(record)
+    else:
+        raise UnsupportedEventChannelException(f'event_type:{event_type}')
+
+
 def lambda_handler(event, context):
     print(json.dumps(event))
 
@@ -98,11 +134,8 @@ def lambda_handler(event, context):
     if event.get('Records', None):  # from SQS or DynamoDB Streams
         for record in event['Records']:
             if record['eventSource'] == 'aws:dynamodb':
-                dynamodb_streams_record_publish(record)
-            elif record['eventSource'] == 'aws:sqs':  # Todo: delete
-                # sqs_invocation(event)
-                # 今回はない
-                pass
+                # dynamodb_streams_record_publish(record)
+                event_handler(record)
             else:
                 raise Exception(f"NotSupportEvent:{record['eventSource']}")
     elif event.get('detail-type', None):  # from event bridge  # Todo: delete
