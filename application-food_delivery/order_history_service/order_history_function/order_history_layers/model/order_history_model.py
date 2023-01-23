@@ -193,5 +193,5 @@ class Order:
         d['delivery_information'] = DeliveryInformation.from_dict(d['delivery_information'])
         d['order_line_items'] = [OrderLineItem.from_dict(item) for item in d['order_line_items']]
         d['order_state'] = OrderState(d['order_state'])
-        d['delivery_state'] = DeliveryState(d['delivery_state'])
+        d['delivery_state'] = DeliveryState(d['delivery_state']) if d.get('delivery_state') else None
         return cls(**d)

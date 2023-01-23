@@ -151,7 +151,7 @@ def rest_invocation(event: dict):
             = rest_request(event)
 
         cmd = None
-        if re.fullmatch('/orders/', path) and http_method == 'GET':
+        if re.fullmatch('/orders', path) and http_method == 'GET':
             """
             - Get Order History
             POST /orders
